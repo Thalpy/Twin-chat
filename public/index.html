@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Unified Chat</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 1em;
+        }
+
+        #chat {
+            border: 1px solid #ccc;
+            height: 400px;
+            overflow-y: scroll;
+            padding: 0.5em;
+        }
+
+        #inputArea {
+            margin-top: 1em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Unified VTuber Chat</h1>
+    <div id="chat"></div>
+    <div id="inputArea">
+        <select id="target">
+            <option>Both</option>
+            <option>Twitch</option>
+            <option>YouTube</option>
+        </select>
+        <input type="text" id="msg" placeholder="Your message" />
+        <button onclick="send()">Send</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const chat = document.getElementById('chat');
+
+        socket.on('chat', ({ platform, user, text }) => {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>[${platform}] ${user}:</strong> ${text}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        });
+
+        function send() {
+            const text = document.getElementById('msg').value;
+            const target = document.getElementById('target').value;
+            if (text) {
+                socket.emit('send', { target, text });
+                document.getElementById('msg').value = '';
+            }
+        }
+    </script>
+</body>
+
+</html>

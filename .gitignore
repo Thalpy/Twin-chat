@@ -1,0 +1,48 @@
+# Node modules
+node_modules/
+
+# Environment configuration
+.env
+.env.local
+.env.*.local
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Coverage reports
+coverage/
+
+# Compiled output (if any build process)
+dist/
+build/
+
+# Optional: OS-specific files
+*.swp
+*.swo
+
+# IDE/editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Stream/OBS temp files (if captured)
+*.mkv
+*.flv
+*.mp4
+*.mp3
+
+# Socket.io session files (if used)
+*.sock
+
+# Cache folders
+.cache/
+tmp/
