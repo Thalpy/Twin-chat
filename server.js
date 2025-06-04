@@ -4,24 +4,23 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const tmi = require("tmi.js");
-const { google } = require("googleapis");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+//Sound
+const player = require("play-sound")();
+const path = require("path");
+
 app.use(express.static("public"));
 
+// Twitch credentials
 const TWITCH_CHANNEL = process.env.TWITCH_CHANNEL;
 const TWITCH_USERNAME = process.env.TWITCH_USERNAME;
 const TWITCH_OAUTH = process.env.TWITCH_OAUTH;
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
-
-let youtubeLiveChatId = null;
-require("dotenv").config();
-
-// Twitch Client
+// Setup Twitch client
 const twitchClient = new tmi.Client({
   identity: {
     username: TWITCH_USERNAME,
@@ -30,68 +29,17 @@ const twitchClient = new tmi.Client({
   channels: [TWITCH_CHANNEL],
 });
 
-twitchClient.connect();
-
-// YouTube Polling
-const youtube = google.youtube({ version: "v3", auth: YOUTUBE_API_KEY });
-
-async function pollYouTubeChat() {
-  try {
-    if (!youtubeLiveChatId) {
-      const res = await youtube.liveBroadcasts.list({
-        part: "snippet",
-        broadcastStatus: "active",
-        mine: true,
-      });
-      youtubeLiveChatId = res.data.items[0]?.snippet?.liveChatId;
-    }
-
-    if (youtubeLiveChatId) {
-      const response = await youtube.liveChatMessages.list({
-        liveChatId: youtubeLiveChatId,
-        part: "snippet,authorDetails",
-      });
-
-      for (const msg of response.data.items) {
-        io.emit("chat", {
-          platform: "YouTube",
-          user: msg.authorDetails.displayName,
-          text: msg.snippet.displayMessage,
-        });
-      }
-    }
-  } catch (e) {
-    console.error("YouTube error:", e.message);
-  }
-
-  setTimeout(pollYouTubeChat, 5000);
+function playNotification() {
+  const soundPath = path.join(__dirname, "notify.mp3");
+  player.play(soundPath, (err) => {
+    if (err) console.error("Sound error:", err);
+  });
 }
 
-// Handle incoming chat from client
-io.on("connection", (socket) => {
-  socket.on("send", ({ target, text }) => {
-    if (target === "Twitch" || target === "Both") {
-      twitchClient.say(TWITCH_CHANNEL, text);
-    }
-    if ((target === "YouTube" || target === "Both") && youtubeLiveChatId) {
-      youtube.liveChatMessages
-        .insert({
-          part: "snippet",
-          requestBody: {
-            snippet: {
-              liveChatId: youtubeLiveChatId,
-              type: "textMessageEvent",
-              textMessageDetails: {
-                messageText: text,
-              },
-            },
-          },
-        })
-        .catch((e) => console.error("YT Send Error:", e.message));
-    }
-  });
-});
 
+twitchClient.connect().catch(console.error);
+
+// Broadcast Twitch messages to all connected frontends
 twitchClient.on("message", (_, tags, message) => {
   io.emit("chat", {
     platform: "Twitch",
@@ -100,7 +48,43 @@ twitchClient.on("message", (_, tags, message) => {
   });
 });
 
+// WebSocket: handle messages from frontend and from YouTube scraper
+io.on("connection", (socket) => {
+  console.log("Client connected");
+
+    socket.on("youtube_chat", ({ user, text }) => {
+      if (user && text) {
+        io.emit("chat", {
+          platform: "YouTube",
+          user,
+          text,
+        });
+        playNotification(); // 🔔 Notify for YouTube
+      }
+    });
+
+    socket.on("twitch_chat", ({ user, text }) => {
+      if (user && text) {
+        io.emit("chat", {
+          platform: "Twitch",
+          user,
+          text,
+        });
+        playNotification(); // 🔔 Notify for Twitch
+      }
+    });
+  
+  // Incoming messages from frontend (to Twitch or YouTube)
+  socket.on("send", ({ target, text }) => {
+    if ((target === "Twitch" || target === "Both") && text) {
+      twitchClient.say(TWITCH_CHANNEL, text).catch((err) => {
+        console.error("Twitch Send Error:", err.message);
+      });
+    }
+    // No YouTube sending here – handled externally if ever enabled
+  });
+});
+
 server.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
-  pollYouTubeChat();
+  console.log("✅ Server running at http://localhost:3000");
 });
