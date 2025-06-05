@@ -1,0 +1,97 @@
+body {
+    font-family: sans-serif;
+    margin: 1em;
+    background-color: #1c1b18;
+    color: #e8e6e3;
+}
+
+#chat {
+    border: 1px solid #3a332b;
+    background-color: #2a2723;
+    color: #f0eae0;
+    height: 400px;
+    overflow-y: scroll;
+    padding: 0.5em;
+    border-radius: 6px;
+    box-shadow: 0 0 8px #00000055;
+}
+
+#inputArea {
+    margin-top: 1em;
+    background-color: #2a2723;
+    padding: 0.5em;
+    border-radius: 6px;
+    border: 1px solid #3a332b;
+}
+
+select,
+input[type="text"] {
+    background-color: #3b3631;
+    color: #f0eae0;
+    border: 1px solid #5c5146;
+    padding: 0.3em;
+    border-radius: 4px;
+    margin-right: 0.5em;
+}
+
+button {
+    background-color: #806b52;
+    color: white;
+    border: none;
+    padding: 0.4em 0.8em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #a4886f;
+}
+
+.message {
+    margin-bottom: 6px;
+    line-height: 1.4em;
+}
+
+.user {
+    font-weight: bold;
+}
+
+.timestamp {
+    color: #9c8f7d;
+    margin-right: 0.4em;
+}
+
+img.emoji {
+    height: 1.6em;
+    vertical-align: middle;
+}
+
+/* Chroma Key mode */
+.chroma #chat {
+    background-color: #00ff00 !important;
+    color: white !important;
+}
+
+.chroma .timestamp,
+.chroma .user {
+    color: white !important;
+}
+
+#chromaToggle {
+    margin-top: 0.5em;
+}
+
+.avatar {
+    height: 1.6em;
+    width: 1.6em;
+    object-fit: cover;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+.platform-icon {
+    height: 1.2em;
+    width: auto;
+    vertical-align: middle;
+    margin-right: 0.3em;
+}

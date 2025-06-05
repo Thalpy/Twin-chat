@@ -1,4 +1,4 @@
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer"); // now uses full puppeteer
 const readline = require("readline");
 const io = require("socket.io-client");
 
@@ -9,7 +9,7 @@ const rl = readline.createInterface({
 });
 
 function extractVideoId(url) {
-  const match = url.match(/(?:v=|\/live\/|\.be\/)([a-zA-Z0-9_-]{11})/);
+  const match = url.match(/(?:v=|\/live\/|\.be\/|v=)([a-zA-Z0-9_-]{11})/);
   return match ? match[1] : null;
 }
 
@@ -26,20 +26,30 @@ rl.question("🎥 Paste your YouTube live stream URL: ", async (url) => {
   const SERVER_URL = "http://localhost:3000";
   const seenMessages = new Set();
 
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({
+    headless: false, // For debugging — shows the browser
+    defaultViewport: null, // Use full available window
+    timeout: 60000, // Increase Puppeteer launch timeout
+  });
+
   const page = await browser.newPage();
+
+  // Forward browser-side console logs
   page.on("console", (msg) => {
     for (let i = 0; i < msg.args().length; ++i) {
       msg
         .args()
         [i].jsonValue()
         .then((val) => {
-          console.log(`[BrowserLog]`, val);
+          //console.log(`[BrowserLog]`, val);
         });
     }
   });
-  
-  await page.goto(CHAT_URL);
+
+  await page.goto(CHAT_URL, {
+    waitUntil: "networkidle2",
+    timeout: 60000, // ⏱️ Increase navigation timeout
+  });
 
   const socket = io(SERVER_URL);
 
@@ -55,62 +65,65 @@ rl.question("🎥 Paste your YouTube live stream URL: ", async (url) => {
     }
   });
 
-  await page.evaluate(async () => {
-    const seen = new Set();
+  // 🧪 Wrap page.evaluate in try/catch to avoid timeout crash
+  try {
+    await page.evaluate(async () => {
+      const seen = new Set();
 
-    function scanMessages() {
-      const messages = document.querySelectorAll(
-        "yt-live-chat-text-message-renderer"
-      );
-      console.log("🧪 Scanning for new messages");
-      for (let msg of messages) {
-        const id = msg.getAttribute("id");
-        if (id && !seen.has(id)) {
-          seen.add(id);
-          const author = msg.querySelector("#author-name")?.innerText;
-          const text = msg.querySelector("#message")?.innerText;
-          if (author && text) {
-            window.onNewChatMessage({ id, author, text });
-            console.log(`[DEBUG] ${author}: ${text}`);
+      // Check if chat is disabled
+      const disabledText = document.body.innerText;
+      if (disabledText.includes("Chat is disabled for this live stream")) {
+        console.log("❌ Chat is disabled for this livestream.");
+        window.onNewChatMessage({
+          id: "disabled",
+          author: "YouTube",
+          text: "❌ Chat is disabled for this stream.",
+        });
+        return;
+      }
+
+      function scanMessages() {
+        const messages = document.querySelectorAll(
+          "yt-live-chat-text-message-renderer"
+        );
+        for (const msg of messages) {
+          const id = msg.getAttribute("id");
+          if (id && !seen.has(id)) {
+            seen.add(id);
+            const author = msg.querySelector("#author-name")?.innerText;
+            const text = msg.querySelector("#message")?.innerHTML;
+            const avatar = msg.querySelector("#author-photo img")?.src || "";
+            if (author && text) {
+              window.onNewChatMessage({ id, author, text, avatar });
+              console.log(`[DEBUG] ${author}: ${text}`);
+            }
           }
         }
       }
-    }
 
-    // ✅ Wait until the item-scroller is available
-    function waitForElement(selector, timeout = 10000) {
-      return new Promise((resolve, reject) => {
-        const interval = 100;
-        const maxTries = timeout / interval;
-        let tries = 0;
-        const check = () => {
-          const el = document.querySelector(selector);
-          if (el) return resolve(el);
-          if (++tries > maxTries)
-            return reject("Element not found: " + selector);
-          setTimeout(check, interval);
-        };
-        check();
-      });
-    }
+      // Wait until container is ready (no timeout)
+      const waitForContainer = () =>
+        new Promise((resolve) => {
+          const check = () => {
+            const container = document.querySelector(
+              "yt-live-chat-item-list-renderer #contents"
+            );
+            if (container) return resolve(container);
+            requestAnimationFrame(check);
+          };
+          check();
+        });
 
-    try {
-      const chatContainer = await waitForElement("#item-scroller");
+      const container = await waitForContainer();
       const observer = new MutationObserver(scanMessages);
-      observer.observe(chatContainer, {
-        childList: true,
-        subtree: true,
-      });
+      observer.observe(container, { childList: true, subtree: true });
 
-      // Do an initial scan
-      scanMessages();
-    } catch (err) {
-      console.error("❌ Failed to attach observer:", err);
-    }
-  });
-  
-  
-  
+      scanMessages(); // initial scan
+      console.log("✅ Chat observer attached and running.");
+    });
+  } catch (err) {
+    console.error("💥 Error in page.evaluate:", err.message);
+  }
 
   console.log(`✅ Connected to YouTube chat for video ${VIDEO_ID}`);
 });

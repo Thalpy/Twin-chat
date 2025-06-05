@@ -3,28 +3,13 @@
 
 <head>
     <title>Unified Chat</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            margin: 1em;
-        }
-
-        #chat {
-            border: 1px solid #ccc;
-            height: 400px;
-            overflow-y: scroll;
-            padding: 0.5em;
-        }
-
-        #inputArea {
-            margin-top: 1em;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <h1>Unified VTuber Chat</h1>
     <div id="chat"></div>
+
     <div id="inputArea">
         <select id="target">
             <option>Both</option>
@@ -33,18 +18,148 @@
         </select>
         <input type="text" id="msg" placeholder="Your message" />
         <button onclick="send()">Send</button>
+        <div id="chromaToggle">
+            <label><input type="checkbox" id="toggleChroma"> Enable Chroma Key</label>
+        </div>
     </div>
+
+    <audio id="notify" src="notify.mp3" preload="auto"></audio>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         const chat = document.getElementById('chat');
+        const audio = document.getElementById('notify');
+        const userColors = {};
+        const messages = [];
 
-        socket.on('chat', ({ platform, user, text }) => {
-            const div = document.createElement('div');
-            div.innerHTML = `<strong>[${platform}] ${user}:</strong> ${text}`;
+        function pastelColorFromUsername(username) {
+            let hash = 0;
+            for (let i = 0; i < username.length; i++) {
+                hash = username.charCodeAt(i) + ((hash << 5) - hash);
+            }
+
+            // Avoid greens in chroma mode
+            const isChroma = document.body.classList.contains("chroma");
+            let hue = Math.abs(hash % 360);
+
+            if (isChroma && hue >= 90 && hue <= 150) {
+                // Adjust green hues to safer ones
+                hue = (hue + 120) % 360;
+            }
+
+            return `hsl(${hue}, 70%, 80%)`;
+        }
+
+
+        function formatTimeDelta(seconds) {
+            if (seconds < 60) return `${seconds}s`;
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            return `${h}:${m.toString().padStart(2, '0')}`;
+        }
+
+        function sanitize(text) {
+            const div = document.createElement("div");
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        function allowOnlySafeImages(html) {
+            const div = document.createElement("div");
+            div.innerHTML = html;
+
+            const allowedHosts = [
+                "https://static-cdn.jtvnw.net",
+                "https://www.gstatic.com/youtube",
+                "https://cdn.betterttv.net",
+                "https://cdn.7tv.app",
+                "https://cdn.frankerfacez.com",
+            ];
+
+            const images = div.querySelectorAll("img");
+
+            for (const img of images) {
+                const src = (img.getAttribute("src") || "").trim();
+
+                // Remove <img> if src is missing or invalid
+                if (!src || !allowedHosts.some(host => src.startsWith(host))) {
+                    img.remove();
+                    continue;
+                }
+
+                // Rebuild clean <img> tag
+                const newImg = document.createElement("img");
+                newImg.src = src;
+                newImg.alt = img.alt || "";
+                newImg.classList.add("emoji");
+                newImg.style.height = "1.6em";
+                newImg.style.verticalAlign = "middle";
+
+                img.replaceWith(newImg);
+            }
+
+            return div.innerHTML;
+        }
+
+        socket.on("chat", ({ platform, user, text, avatar }) => {
+            const timestamp = new Date();
+            const color = userColors[user] ||= pastelColorFromUsername(user);
+
+            const div = document.createElement("div");
+            div.className = "message";
+
+            const timeSpan = document.createElement("span");
+            timeSpan.className = "timestamp";
+            timeSpan.dataset.timestamp = timestamp.toISOString();
+            timeSpan.innerText = "0s";
+
+            const userSpan = document.createElement("span");
+            userSpan.className = "user";
+            const icon = document.createElement("img");
+            icon.className = "platform-icon";
+            icon.alt = platform;
+            icon.title = platform;
+            icon.src = platform === "YouTube"
+                ? "youtube.png" // or "youtube.svg"
+                : "twitch.png"; // or "twitch.svg"
+            icon.style.height = "1.2em";
+            icon.style.verticalAlign = "middle";
+            icon.style.marginRight = "0.25em";
+
+            userSpan.innerHTML = `${sanitize(user)}`;
+            userSpan.prepend(icon);
+            userSpan.style.color = color;
+
+            const avatarImg = document.createElement("img");
+            avatarImg.src = sanitize(avatar || "");
+            avatarImg.alt = "avatar";
+            avatarImg.className = "avatar";
+            avatarImg.style.height = "1.6em";
+            avatarImg.style.borderRadius = "50%";
+            avatarImg.style.marginRight = "0.5em";
+            avatarImg.style.verticalAlign = "middle";
+
+            div.appendChild(timeSpan);
+            div.appendChild(avatarImg);
+            div.appendChild(userSpan); // avatar already added before this in earlier fix
+
+            const content = document.createElement("span");
+            const isHtml = text.includes("<img") || text.includes("<span") || text.includes("emoji_");
+            content.innerHTML = `: ${isHtml ? allowOnlySafeImages(text) : sanitize(text)}`;
+
+            div.appendChild(timeSpan);
+            div.appendChild(userSpan);
+            div.appendChild(content);
+
             chat.appendChild(div);
             chat.scrollTop = chat.scrollHeight;
+
+            messages.push({ element: timeSpan, timestamp });
+
+            audio.currentTime = 0;
+            audio.play().catch(() => { });
         });
 
         function send() {
@@ -55,6 +170,18 @@
                 document.getElementById('msg').value = '';
             }
         }
+
+        setInterval(() => {
+            const now = new Date();
+            for (const { element, timestamp } of messages) {
+                const seconds = Math.floor((now - new Date(timestamp)) / 1000);
+                element.innerText = formatTimeDelta(seconds);
+            }
+        }, 1000);
+
+        document.getElementById("toggleChroma").addEventListener("change", (e) => {
+            document.body.classList.toggle("chroma", e.target.checked);
+        });
     </script>
 </body>
 
