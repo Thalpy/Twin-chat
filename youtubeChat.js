@@ -27,7 +27,7 @@ rl.question("🎥 Paste your YouTube live stream URL: ", async (url) => {
   const seenMessages = new Set();
 
   const browser = await puppeteer.launch({
-    headless: false, // For debugging — shows the browser
+    headless: true, // For debugging — shows the browser
     defaultViewport: null, // Use full available window
     timeout: 60000, // Increase Puppeteer launch timeout
   });
@@ -54,16 +54,18 @@ rl.question("🎥 Paste your YouTube live stream URL: ", async (url) => {
   const socket = io(SERVER_URL);
 
   await page.exposeFunction("onNewChatMessage", (msg) => {
-    const id = msg.id;
+    const { id, author, text, avatar } = msg;
     if (!seenMessages.has(id)) {
       seenMessages.add(id);
-      console.log(`[YouTube] ${msg.author}: ${msg.text}`);
+      console.log(`[YouTube] ${author}: ${text}`);
       socket.emit("youtube_chat", {
-        user: msg.author,
-        text: msg.text,
+        user: author,
+        text,
+        avatar,
       });
     }
   });
+  
 
   // 🧪 Wrap page.evaluate in try/catch to avoid timeout crash
   try {
@@ -92,7 +94,8 @@ rl.question("🎥 Paste your YouTube live stream URL: ", async (url) => {
             seen.add(id);
             const author = msg.querySelector("#author-name")?.innerText;
             const text = msg.querySelector("#message")?.innerHTML;
-            const avatar = msg.querySelector("#author-photo img")?.src || "";
+            const avatar = msg.querySelector("#author-photo img")?.src;
+
             if (author && text) {
               window.onNewChatMessage({ id, author, text, avatar });
               console.log(`[DEBUG] ${author}: ${text}`);
