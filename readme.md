@@ -10,7 +10,7 @@ A lightweight Node.js tool that displays messages from Twitch and YouTube Live t
 - Notification sound on new messages
 - Optional chroma key mode for OBS overlays
 - Messages are color-coded by user for clarity
-- Darkmode! Non optional, but highly recommended! (you can change the colors in the `public/css/style.css` file)
+- Darkmode! Non optional, but highly recommended! (you can change the colors in the `public/style.css` file)
 - sanitizes emotes and images for safety
 
 ## Usage
