@@ -3,14 +3,16 @@ body {
     margin: 1em;
     background-color: #1c1b18;
     color: #e8e6e3;
+    flex-direction: column;
 }
 
 #chat {
+    flex: 1;
     border: 1px solid #3a332b;
     background-color: #2a2723;
     color: #f0eae0;
     height: 400px;
-    overflow-y: scroll;
+    overflow-y: auto;
     padding: 0.5em;
     border-radius: 6px;
     box-shadow: 0 0 8px #00000055;
@@ -94,4 +96,22 @@ img.emoji {
     width: auto;
     vertical-align: middle;
     margin-right: 0.3em;
+}
+
+html,
+body {
+    height: 98%;
+    margin: 0;
+    padding: 0.35em;
+}
+
+#container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+#chat {
+    flex: 1;
+    /* This is the magic */
 }

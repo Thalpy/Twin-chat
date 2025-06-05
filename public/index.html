@@ -7,19 +7,21 @@
 </head>
 
 <body>
-    <h1>Unified VTuber Chat</h1>
+    <div id="container">
+        <h1>Unified VTuber Chat</h1>
 
-    <div id="chat"></div>
+        <div id="chat"></div>
 
-    <div id="inputArea">
-        <select id="target">
-            <option>Both</option>
-            <option>Twitch</option>
-            <option>YouTube</option>
-        </select>
-        <input type="text" id="msg" placeholder="Your message" />
-        <button onclick="send()">Send</button>
-        <label><input type="checkbox" id="chromaToggle"> Chroma Key Mode</label>
+        <div id="inputArea">
+            <select id="target">
+                <option>Both</option>
+                <option>Twitch</option>
+                <option>YouTube</option>
+            </select>
+            <input type="text" id="msg" placeholder="Your message" />
+            <button onclick="send()">Send</button>
+            <label><input type="checkbox" id="chromaToggle"> Chroma Key Mode</label>
+        </div>
     </div>
 
     <audio id="notify" src="notify.mp3" preload="auto"></audio>
@@ -61,8 +63,8 @@
             const div = document.createElement("div");
             div.innerHTML = html;
             const allowedHosts = [
-                "https://static-cdn.jtvnw.net",    // Twitch
-                "https://www.gstatic.com/youtube"  // YouTube emoji
+                "https://static-cdn.jtvnw.net",
+                "https://www.gstatic.com/youtube"
             ];
             const images = div.querySelectorAll("img");
             for (const img of images) {
