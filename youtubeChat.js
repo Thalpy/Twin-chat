@@ -27,7 +27,7 @@ rl.question("🎥 Paste your YouTube live stream URL: ", async (url) => {
   const seenMessages = new Set();
 
   const browser = await puppeteer.launch({
-    headless: true, // For debugging — shows the browser
+    headless: false, // Presently doesn't work headless with YouTube
     defaultViewport: null, // Use full available window
     timeout: 60000, // Increase Puppeteer launch timeout
   });
